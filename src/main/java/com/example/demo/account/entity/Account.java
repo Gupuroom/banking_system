@@ -1,7 +1,9 @@
 package com.example.demo.account.entity;
 
+import com.example.demo.account.error.AccountErrorCode;
 import com.example.demo.account.type.AccountStatus;
 import com.example.demo.common.BaseEntity;
+import com.example.demo.common.error.BusinessException;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -37,6 +39,10 @@ public class Account extends BaseEntity {
     }
 
     public void delete() {
+        if (status == AccountStatus.DELETED) {
+            throw new BusinessException(AccountErrorCode.ACCOUNT_ALREADY_DELETED);
+        }
+
         status = AccountStatus.DELETED;
     }
 
