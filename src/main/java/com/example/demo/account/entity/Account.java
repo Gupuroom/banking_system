@@ -46,4 +46,7 @@ public class Account extends BaseEntity {
         status = AccountStatus.DELETED;
     }
 
+    public void deposit(BigDecimal amount) {
+        this.balance = this.balance.add(amount);
+    }
 }
