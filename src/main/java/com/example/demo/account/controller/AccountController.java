@@ -9,19 +9,18 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api")
 @RequiredArgsConstructor
 public class AccountController {
 
     private final AccountService accountService;
 
-    @PostMapping("/accounts")
+    @PostMapping("/api/accounts")
     public ResponseEntity<AccountResponse> createAccount(@Valid @RequestBody AccountCreateRequest request) {
         AccountResponse response = accountService.createAccount(request);
         return ResponseEntity.ok(response);
     }
 
-    @DeleteMapping("/accounts/{accountNumber}")
+    @DeleteMapping("/api/accounts/{accountNumber}")
     public ResponseEntity<Void> deleteAccount(@PathVariable String accountNumber) {
         accountService.deleteAccount(accountNumber);
         return ResponseEntity.noContent().build();
