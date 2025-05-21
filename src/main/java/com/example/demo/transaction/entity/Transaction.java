@@ -27,13 +27,13 @@ public class Transaction extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private TransactionType type;
 
-    @Column(nullable = false, precision = 19, scale = 2)
+    @Column(nullable = false, precision = 19)
     private BigDecimal amount;
 
-    @Column(nullable = false, precision = 19, scale = 2)
+    @Column(nullable = false, precision = 19)
     private BigDecimal balanceAfterTransaction;
 
-    @Column(precision = 19, scale = 2)
+    @Column(precision = 19)
     private BigDecimal fee;
 
     @Column(length = 20)
@@ -59,14 +59,20 @@ public class Transaction extends BaseEntity {
                 .build();
     }
 
-    public static Transaction createTransfer(Account account, Account relatedAccount, BigDecimal amount) {
+    public static Transaction createTransfer(
+        Account account,
+        BigDecimal amount,
+        BigDecimal fee,
+        BigDecimal balanceAfterTransaction,
+        String relatedAccountNumber
+    ) {
         return Transaction.builder()
                 .account(account)
                 .type(TransactionType.TRANSFER)
                 .amount(amount)
-                .balanceAfterTransaction(account.getBalance())
-                .fee(BigDecimal.ZERO)
-                .relatedAccountNumber(relatedAccount.getAccountNumber())
+                .balanceAfterTransaction(balanceAfterTransaction)
+                .fee(fee)
+                .relatedAccountNumber(relatedAccountNumber)
                 .build();
     }
 } 

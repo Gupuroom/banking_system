@@ -23,10 +23,15 @@ public class Account extends BaseEntity {
     @Column(nullable = false, unique = true, length = 20)
     private String accountNumber;
 
-    @Column(nullable = false, precision = 19, scale = 2)
+    // 원화 기준이므로 소수점은 없앤다.
+    @Column(nullable = false, precision = 19)
     private BigDecimal balance;
 
-    @Column(nullable = false, length = 20)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_type_id", nullable = false)
+    private AccountType accountType;
+
+    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private AccountStatus status;
 
@@ -38,14 +43,6 @@ public class Account extends BaseEntity {
                 .build();
     }
 
-    public void delete() {
-        if (status == AccountStatus.DELETED) {
-            throw new BusinessException(AccountErrorCode.ACCOUNT_ALREADY_DELETED);
-        }
-
-        status = AccountStatus.DELETED;
-    }
-
     public void deposit(BigDecimal amount) {
         this.balance = this.balance.add(amount);
     }
@@ -54,7 +51,25 @@ public class Account extends BaseEntity {
         if (this.balance.compareTo(amount) < 0) {
             throw new BusinessException(AccountErrorCode.INSUFFICIENT_BALANCE);
         }
-
         this.balance = this.balance.subtract(amount);
+    }
+
+    public void delete() {
+        if (status == AccountStatus.DELETED) {
+            throw new BusinessException(AccountErrorCode.ACCOUNT_ALREADY_DELETED);
+        }
+        this.status = AccountStatus.DELETED;
+    }
+
+    public BigDecimal calculateTransferFee(BigDecimal amount) {
+        return this.accountType.calculateTransferFee(amount);
+    }
+
+    public BigDecimal getDailyWithdrawalLimit() {
+        return this.accountType.getDailyWithdrawalLimit();
+    }
+
+    public BigDecimal getDailyTransferLimit() {
+        return this.accountType.getDailyTransferLimit();
     }
 }

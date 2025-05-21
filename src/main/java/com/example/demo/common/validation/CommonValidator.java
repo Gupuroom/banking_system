@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 @Component
 public class CommonValidator {
     public void validateAccountNumberFormat(String accountNumber) {
-        if (accountNumber == null || accountNumber.isBlank()) {
+        if (accountNumber == null || accountNumber.isBlank() || accountNumber.length() > 20) {
             throw new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE);
         }
     }

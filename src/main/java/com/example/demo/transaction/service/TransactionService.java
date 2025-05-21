@@ -2,7 +2,6 @@ package com.example.demo.transaction.service;
 
 import com.example.demo.account.entity.Account;
 import com.example.demo.account.repository.AccountRepository;
-import com.example.demo.account.validation.AccountValidator;
 import com.example.demo.transaction.dto.TransactionRequest;
 import com.example.demo.transaction.dto.TransactionResponse;
 import com.example.demo.transaction.entity.Transaction;
@@ -12,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -56,21 +56,45 @@ public class TransactionService {
 
     @Transactional
     public TransactionResponse transfer(String fromAccountNumber, String toAccountNumber, TransactionRequest request) {
-        // 검증
+        // 1. 이체 검증
         transactionValidator.validateTransfer(fromAccountNumber, toAccountNumber, request.amount());
 
-        // 계좌 조회
+        // 2. 계좌 조회
         Account fromAccount = accountRepository.findByAccountNumber(fromAccountNumber).get();
         Account toAccount = accountRepository.findByAccountNumber(toAccountNumber).get();
 
-        // 이체 처리
-        fromAccount.withdraw(request.amount());
+        // 3. 수수료 계산
+        BigDecimal fee = fromAccount.calculateTransferFee(request.amount());
+        BigDecimal totalAmount = request.amount().add(fee);
+
+        // 4. 출금 계좌 잔액 업데이트
+        fromAccount.withdraw(totalAmount);
+        BigDecimal fromAccountBalanceAfterTransaction = fromAccount.getBalance();
+
+        // 5. 입금 계좌 잔액 업데이트
         toAccount.deposit(request.amount());
+        BigDecimal toAccountBalanceAfterTransaction = toAccount.getBalance();
 
-        // 이체 거래 내역 생성 및 저장
-        Transaction transaction = Transaction.createTransfer(fromAccount, toAccount, request.amount());
-        Transaction savedTransaction = transactionRepository.save(transaction);
+        // 6. 거래 내역 생성 및 저장
+        Transaction fromTransaction = Transaction.createTransfer(
+            fromAccount,
+            request.amount(),
+            fee,
+            fromAccountBalanceAfterTransaction,
+            toAccountNumber
+        );
+        Transaction savedFromTransaction = transactionRepository.save(fromTransaction);
 
-        return TransactionResponse.from(savedTransaction);
+        Transaction toTransaction = Transaction.createTransfer(
+            toAccount,
+            request.amount(),
+            BigDecimal.ZERO,
+            toAccountBalanceAfterTransaction,
+            fromAccountNumber
+        );
+        transactionRepository.save(toTransaction);
+
+        // 출금 계좌의 거래 내역을 반환
+        return TransactionResponse.from(savedFromTransaction);
     }
 }

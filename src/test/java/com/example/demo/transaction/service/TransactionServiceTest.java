@@ -1,8 +1,10 @@
 package com.example.demo.transaction.service;
 
 import com.example.demo.account.entity.Account;
+import com.example.demo.account.entity.AccountType;
 import com.example.demo.account.error.AccountErrorCode;
 import com.example.demo.account.repository.AccountRepository;
+import com.example.demo.account.type.AccountStatus;
 import com.example.demo.common.error.BusinessException;
 import com.example.demo.common.error.CommonErrorCode;
 import com.example.demo.transaction.dto.TransactionRequest;
@@ -17,6 +19,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -31,16 +34,24 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class TransactionServiceTest {
 
+    @InjectMocks
+    private TransactionService transactionService;
+
+    @Mock
+    private TransactionValidator transactionValidator;
+
     @Mock
     private AccountRepository accountRepository;
 
     @Mock
     private TransactionRepository transactionRepository;
 
-    @Mock
-    private TransactionValidator transactionValidator;
-
-    private TransactionService transactionService;
+    private Account normalAccount;
+    private Account premiumAccount;
+    private Account vipAccount;
+    private AccountType normalType;
+    private AccountType premiumType;
+    private AccountType vipType;
 
     private static final String TEST_ACCOUNT_NUMBER = "13-12-123456";
     private static final BigDecimal TEST_INITIAL_BALANCE = new BigDecimal("100000");
@@ -50,299 +61,147 @@ class TransactionServiceTest {
     private static final BigDecimal TEST_NEGATIVE_AMOUNT = new BigDecimal("-10000");
     private static final BigDecimal TEST_LARGE_AMOUNT = new BigDecimal("20000000");
 
-    private Account testAccount;
-
     @BeforeEach
     void setUp() {
-        transactionService = new TransactionService(accountRepository, transactionRepository, transactionValidator);
-        testAccount = Account.create(TEST_ACCOUNT_NUMBER, TEST_INITIAL_BALANCE);
+        // 계좌 타입 설정
+        normalType = AccountType.builder()
+            .code("NORMAL")
+            .description("일반계좌")
+            .transferFeeRate(new BigDecimal("0.01"))
+            .dailyWithdrawalLimit(new BigDecimal("1000000"))
+            .dailyTransferLimit(new BigDecimal("3000000"))
+            .build();
+
+        premiumType = AccountType.builder()
+            .code("PREMIUM")
+            .description("프리미엄계좌")
+            .transferFeeRate(new BigDecimal("0.005"))
+            .dailyWithdrawalLimit(new BigDecimal("5000000"))
+            .dailyTransferLimit(new BigDecimal("10000000"))
+            .build();
+
+        vipType = AccountType.builder()
+            .code("VIP")
+            .description("VIP계좌")
+            .transferFeeRate(BigDecimal.ZERO)
+            .dailyWithdrawalLimit(new BigDecimal("10000000"))
+            .dailyTransferLimit(new BigDecimal("20000000"))
+            .build();
+
+        // 계좌 설정
+        normalAccount = Account.builder()
+            .accountNumber("1234567891")
+            .balance(new BigDecimal("1000000"))
+            .accountType(normalType)
+            .status(AccountStatus.ACTIVE)
+            .build();
+
+        premiumAccount = Account.builder()
+            .accountNumber("2345678910")
+            .balance(new BigDecimal("1000000"))
+            .accountType(premiumType)
+            .status(AccountStatus.ACTIVE)
+            .build();
+
+        vipAccount = Account.builder()
+            .accountNumber("3456789012")
+            .balance(new BigDecimal("1000000"))
+            .accountType(vipType)
+            .status(AccountStatus.ACTIVE)
+            .build();
     }
 
     @Nested
-    @DisplayName("입금")
-    class Deposit {
+    @DisplayName("입금 테스트")
+    class DepositTest {
         @Test
         @DisplayName("입금 성공")
         void deposit_success() {
             // given
-            TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
-            Transaction transaction = Transaction.createDeposit(testAccount, TEST_DEPOSIT_AMOUNT);
-            when(accountRepository.findByAccountNumber(TEST_ACCOUNT_NUMBER))
-                .thenReturn(Optional.of(testAccount));
+            String accountNumber = "1234567891";
+            BigDecimal amount = new BigDecimal("100000");
+            TransactionRequest request = new TransactionRequest(amount);
+
+            when(accountRepository.findByAccountNumber(accountNumber))
+                .thenReturn(Optional.of(normalAccount));
             when(transactionRepository.save(any(Transaction.class)))
-                .thenReturn(transaction);
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
-            TransactionResponse response = transactionService.deposit(TEST_ACCOUNT_NUMBER, request);
+            TransactionResponse response = transactionService.deposit(accountNumber, request);
 
             // then
-            assertThat(response.accountNumber()).isEqualTo(TEST_ACCOUNT_NUMBER);
-            assertThat(response.amount()).isEqualTo(TEST_DEPOSIT_AMOUNT);
+            assertThat(response.amount()).isEqualTo(amount);
             assertThat(response.type()).isEqualTo(TransactionType.DEPOSIT);
-            assertThat(testAccount.getBalance()).isEqualTo(TEST_INITIAL_BALANCE.add(TEST_DEPOSIT_AMOUNT));
+            assertThat(response.fee()).isEqualTo(BigDecimal.ZERO);
+            assertThat(normalAccount.getBalance()).isEqualTo(new BigDecimal("1100000"));
 
-            verify(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-            verify(accountRepository).findByAccountNumber(TEST_ACCOUNT_NUMBER);
+            verify(transactionValidator).validateDeposit(accountNumber, amount);
+            verify(accountRepository).findByAccountNumber(accountNumber);
             verify(transactionRepository).save(any(Transaction.class));
         }
 
         @Test
-        @DisplayName("null 금액으로 입금 시도 시 실패")
-        void deposit_nullAmount() {
-            // given
-            TransactionRequest request = new TransactionRequest(null);
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, null);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.deposit(TEST_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, null);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("소수점이 있는 금액으로 입금 시도 시 실패")
-        void deposit_decimalAmount() {
-            // given
-            TransactionRequest request = new TransactionRequest(TEST_DECIMAL_AMOUNT);
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, TEST_DECIMAL_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.deposit(TEST_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, TEST_DECIMAL_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("0원으로 입금 시도 시 실패")
-        void deposit_zeroAmount() {
-            // given
-            TransactionRequest request = new TransactionRequest(TEST_ZERO_AMOUNT);
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, TEST_ZERO_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.deposit(TEST_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, TEST_ZERO_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("음수 금액으로 입금 시도 시 실패")
-        void deposit_negativeAmount() {
-            // given
-            TransactionRequest request = new TransactionRequest(TEST_NEGATIVE_AMOUNT);
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, TEST_NEGATIVE_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.deposit(TEST_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, TEST_NEGATIVE_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 계좌로 입금 시도 시 실패")
-        void deposit_accountNotFound() {
+        @DisplayName("입금 실패 - 검증 실패")
+        void deposit_validation_failure() {
             // given
             TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
-            doThrow(new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND))
+            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
                 .when(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
 
             // when & then
             assertThatThrownBy(() -> transactionService.deposit(TEST_ACCOUNT_NUMBER, request))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", AccountErrorCode.ACCOUNT_NOT_FOUND);
+                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
 
             verify(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
             verify(accountRepository, never()).findByAccountNumber(any());
             verify(transactionRepository, never()).save(any());
         }
-
-        @Test
-        @DisplayName("최대 금액을 초과하는 금액으로 입금 시도 시 실패")
-        void deposit_amountTooLarge() {
-            // given
-            TransactionRequest request = new TransactionRequest(TEST_LARGE_AMOUNT);
-            doThrow(new BusinessException(TransactionErrorCode.AMOUNT_TOO_LARGE))
-                .when(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, TEST_LARGE_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.deposit(TEST_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", TransactionErrorCode.AMOUNT_TOO_LARGE);
-
-            verify(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, TEST_LARGE_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
     }
 
     @Nested
-    @DisplayName("출금")
-    class Withdrawal {
+    @DisplayName("출금 테스트")
+    class WithdrawalTest {
         @Test
         @DisplayName("출금 성공")
         void withdraw_success() {
             // given
-            TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
-            Transaction transaction = Transaction.createWithdrawal(testAccount, TEST_DEPOSIT_AMOUNT);
-            when(accountRepository.findByAccountNumber(TEST_ACCOUNT_NUMBER))
-                .thenReturn(Optional.of(testAccount));
+            String accountNumber = "1234567891";
+            BigDecimal amount = new BigDecimal("100000");
+            TransactionRequest request = new TransactionRequest(amount);
+
+            when(accountRepository.findByAccountNumber(accountNumber))
+                .thenReturn(Optional.of(normalAccount));
             when(transactionRepository.save(any(Transaction.class)))
-                .thenReturn(transaction);
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
-            TransactionResponse response = transactionService.withdraw(TEST_ACCOUNT_NUMBER, request);
+            TransactionResponse response = transactionService.withdraw(accountNumber, request);
 
             // then
-            assertThat(response.accountNumber()).isEqualTo(TEST_ACCOUNT_NUMBER);
-            assertThat(response.amount()).isEqualTo(TEST_DEPOSIT_AMOUNT);
+            assertThat(response.amount()).isEqualTo(amount);
             assertThat(response.type()).isEqualTo(TransactionType.WITHDRAWAL);
-            assertThat(testAccount.getBalance()).isEqualTo(TEST_INITIAL_BALANCE.subtract(TEST_DEPOSIT_AMOUNT));
+            assertThat(response.fee()).isEqualTo(BigDecimal.ZERO);
+            assertThat(normalAccount.getBalance()).isEqualTo(new BigDecimal("900000"));
 
-            verify(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-            verify(accountRepository).findByAccountNumber(TEST_ACCOUNT_NUMBER);
+            verify(transactionValidator).validateWithdrawal(accountNumber, amount);
+            verify(accountRepository).findByAccountNumber(accountNumber);
             verify(transactionRepository).save(any(Transaction.class));
         }
 
         @Test
-        @DisplayName("null 금액으로 출금 시도 시 실패")
-        void withdraw_nullAmount() {
-            // given
-            TransactionRequest request = new TransactionRequest(null);
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, null);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.withdraw(TEST_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, null);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("소수점이 있는 금액으로 출금 시도 시 실패")
-        void withdraw_decimalAmount() {
-            // given
-            TransactionRequest request = new TransactionRequest(TEST_DECIMAL_AMOUNT);
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_DECIMAL_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.withdraw(TEST_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_DECIMAL_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("0원으로 출금 시도 시 실패")
-        void withdraw_zeroAmount() {
-            // given
-            TransactionRequest request = new TransactionRequest(TEST_ZERO_AMOUNT);
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_ZERO_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.withdraw(TEST_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_ZERO_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("음수 금액으로 출금 시도 시 실패")
-        void withdraw_negativeAmount() {
-            // given
-            TransactionRequest request = new TransactionRequest(TEST_NEGATIVE_AMOUNT);
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_NEGATIVE_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.withdraw(TEST_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_NEGATIVE_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 계좌로 출금 시도 시 실패")
-        void withdraw_accountNotFound() {
+        @DisplayName("출금 실패 - 검증 실패")
+        void withdraw_validation_failure() {
             // given
             TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
-            doThrow(new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND))
+            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
                 .when(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
 
             // when & then
             assertThatThrownBy(() -> transactionService.withdraw(TEST_ACCOUNT_NUMBER, request))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", AccountErrorCode.ACCOUNT_NOT_FOUND);
-
-            verify(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("잔액 부족으로 출금 시도 시 실패")
-        void withdraw_insufficientBalance() {
-            // given
-            TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
-            doThrow(new BusinessException(TransactionErrorCode.INSUFFICIENT_BALANCE))
-                .when(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.withdraw(TEST_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", TransactionErrorCode.INSUFFICIENT_BALANCE);
-
-            verify(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("일일 출금 한도 초과로 출금 시도 시 실패")
-        void withdraw_dailyLimitExceeded() {
-            // given
-            TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
-            doThrow(new BusinessException(TransactionErrorCode.DAILY_WITHDRAWAL_LIMIT_EXCEEDED))
-                .when(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.withdraw(TEST_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", TransactionErrorCode.DAILY_WITHDRAWAL_LIMIT_EXCEEDED);
+                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
 
             verify(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
             verify(accountRepository, never()).findByAccountNumber(any());
@@ -351,130 +210,75 @@ class TransactionServiceTest {
     }
 
     @Nested
-    @DisplayName("이체")
-    class Transfer {
-        private static final String TEST_TO_ACCOUNT_NUMBER = "13-12-654321";
-        private Account testToAccount;
-
-        @BeforeEach
-        void setUp() {
-            testToAccount = Account.create(TEST_TO_ACCOUNT_NUMBER, TEST_INITIAL_BALANCE);
-        }
-
+    @DisplayName("이체 테스트")
+    class TransferTest {
         @Test
         @DisplayName("이체 성공")
-        void transfer_success() {
+        void transfer_normalToNormal_success() {
             // given
-            TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
-            Transaction transaction = Transaction.createTransfer(testAccount, testToAccount, TEST_DEPOSIT_AMOUNT);
-            when(accountRepository.findByAccountNumber(TEST_ACCOUNT_NUMBER))
-                .thenReturn(Optional.of(testAccount));
-            when(accountRepository.findByAccountNumber(TEST_TO_ACCOUNT_NUMBER))
-                .thenReturn(Optional.of(testToAccount));
+            String fromAccountNumber = "1234567891";
+            String toAccountNumber = "2345678910";
+            BigDecimal amount = new BigDecimal("100000");
+            TransactionRequest request = new TransactionRequest(amount);
+
+            Account fromAccount = Account.builder()
+                .accountNumber(fromAccountNumber)
+                .balance(new BigDecimal("1000000"))
+                .accountType(normalType)
+                .status(AccountStatus.ACTIVE)
+                .build();
+
+            Account toAccount = Account.builder()
+                .accountNumber(toAccountNumber)
+                .balance(new BigDecimal("1000000"))
+                .accountType(normalType)
+                .status(AccountStatus.ACTIVE)
+                .build();
+
+            when(accountRepository.findByAccountNumber(fromAccountNumber))
+                .thenReturn(Optional.of(fromAccount));
+            when(accountRepository.findByAccountNumber(toAccountNumber))
+                .thenReturn(Optional.of(toAccount));
             when(transactionRepository.save(any(Transaction.class)))
-                .thenReturn(transaction);
+                .thenAnswer(invocation -> {
+                    Transaction transaction = invocation.getArgument(0);
+                    if (transaction.getAccount().getAccountNumber().equals(fromAccountNumber)) {
+                        return transaction;  // 출금 계좌의 거래 내역을 반환
+                    }
+                    return transaction;
+                });
 
             // when
-            TransactionResponse response = transactionService.transfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, request);
+            TransactionResponse response = transactionService.transfer(fromAccountNumber, toAccountNumber, request);
 
             // then
-            assertThat(response.accountNumber()).isEqualTo(TEST_ACCOUNT_NUMBER);
-            assertThat(response.amount()).isEqualTo(TEST_DEPOSIT_AMOUNT);
+            // 수수료 계산 확인 (1%)
+            BigDecimal expectedFee = new BigDecimal("1000"); // 100,000 * 0.01
+            BigDecimal expectedFromBalance = new BigDecimal("899000"); // 1,000,000 - 100,000 - 1,000
+            BigDecimal expectedToBalance = new BigDecimal("1100000"); // 1,000,000 + 100,000
+
+            assertThat(response.amount()).isEqualTo(amount);
             assertThat(response.type()).isEqualTo(TransactionType.TRANSFER);
-            assertThat(response.relatedAccountNumber()).isEqualTo(TEST_TO_ACCOUNT_NUMBER);
-            assertThat(testAccount.getBalance()).isEqualTo(TEST_INITIAL_BALANCE.subtract(TEST_DEPOSIT_AMOUNT));
-            assertThat(testToAccount.getBalance()).isEqualTo(TEST_INITIAL_BALANCE.add(TEST_DEPOSIT_AMOUNT));
+            assertThat(response.fee()).isEqualTo(expectedFee);
+            assertThat(fromAccount.getBalance()).isEqualTo(expectedFromBalance);
+            assertThat(toAccount.getBalance()).isEqualTo(expectedToBalance);
 
-            verify(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-            verify(accountRepository).findByAccountNumber(TEST_ACCOUNT_NUMBER);
-            verify(accountRepository).findByAccountNumber(TEST_TO_ACCOUNT_NUMBER);
-            verify(transactionRepository).save(any(Transaction.class));
+            // 거래 내역 저장 확인 (출금 계좌와 입금 계좌 모두)
+            verify(transactionRepository, times(2)).save(any(Transaction.class));
         }
 
         @Test
-        @DisplayName("null 금액으로 이체 시도 시 실패")
-        void transfer_nullAmount() {
+        @DisplayName("이체 실패 - 검증 실패")
+        void transfer_validation_failure() {
             // given
-            TransactionRequest request = new TransactionRequest(null);
+            TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
             doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, null);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.transfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, null);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 출금 계좌로 이체 시도 시 실패")
-        void transfer_fromAccountNotFound() {
-            // given
-            TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
-            doThrow(new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND))
-                .when(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.transfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", AccountErrorCode.ACCOUNT_NOT_FOUND);
-
-            verify(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 입금 계좌로 이체 시도 시 실패")
-        void transfer_toAccountNotFound() {
-            // given
-            TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
-            doThrow(new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND))
-                .when(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.transfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", AccountErrorCode.ACCOUNT_NOT_FOUND);
-
-            verify(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("잔액 부족으로 이체 시도 시 실패")
-        void transfer_insufficientBalance() {
-            // given
-            TransactionRequest request = new TransactionRequest(TEST_LARGE_AMOUNT);
-            doThrow(new BusinessException(TransactionErrorCode.INSUFFICIENT_BALANCE))
-                .when(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_LARGE_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionService.transfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, request))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", TransactionErrorCode.INSUFFICIENT_BALANCE);
-
-            verify(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_LARGE_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
-            verify(transactionRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("자기 자신의 계좌로 이체 시도 시 실패")
-        void transfer_sameAccount() {
-            // given
-            TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
-            doThrow(new BusinessException(TransactionErrorCode.SAME_ACCOUNT_TRANSFER))
                 .when(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
 
             // when & then
             assertThatThrownBy(() -> transactionService.transfer(TEST_ACCOUNT_NUMBER, TEST_ACCOUNT_NUMBER, request))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", TransactionErrorCode.SAME_ACCOUNT_TRANSFER);
+                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
 
             verify(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
             verify(accountRepository, never()).findByAccountNumber(any());

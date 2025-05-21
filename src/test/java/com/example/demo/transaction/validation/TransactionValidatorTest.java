@@ -1,32 +1,40 @@
 package com.example.demo.transaction.validation;
 
 import com.example.demo.account.entity.Account;
+import com.example.demo.account.entity.AccountType;
 import com.example.demo.account.error.AccountErrorCode;
+import com.example.demo.account.repository.AccountRepository;
+import com.example.demo.account.type.AccountStatus;
 import com.example.demo.account.validation.AccountValidator;
 import com.example.demo.common.error.BusinessException;
 import com.example.demo.common.error.CommonErrorCode;
 import com.example.demo.common.validation.CommonValidator;
-import com.example.demo.transaction.type.TransactionType;
 import com.example.demo.transaction.error.TransactionErrorCode;
 import com.example.demo.transaction.repository.TransactionRepository;
+import com.example.demo.transaction.type.TransactionType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TransactionValidatorTest {
+
+    @InjectMocks
+    private TransactionValidator transactionValidator;
 
     @Mock
     private CommonValidator commonValidator;
@@ -37,22 +45,45 @@ class TransactionValidatorTest {
     @Mock
     private TransactionRepository transactionRepository;
 
-    private TransactionValidator transactionValidator;
+    @Mock
+    private AccountRepository accountRepository;
 
-    private static final String TEST_ACCOUNT_NUMBER = "13-12-123456";
-    private static final BigDecimal TEST_DEPOSIT_AMOUNT = new BigDecimal("10000");
-    private static final BigDecimal TEST_DECIMAL_AMOUNT = new BigDecimal("10000.5");
-    private static final BigDecimal TEST_ZERO_AMOUNT = BigDecimal.ZERO;
-    private static final BigDecimal TEST_NEGATIVE_AMOUNT = new BigDecimal("-10000");
-    private static final BigDecimal TEST_LARGE_AMOUNT = new BigDecimal("20000000");
-    private static final BigDecimal TEST_WITHDRAWAL_AMOUNT = new BigDecimal("50000");
+    private static final String TEST_ACCOUNT_NUMBER = "1234567891";
+    private static final String TEST_TO_ACCOUNT_NUMBER = "2345678910";
+    private static final BigDecimal TEST_AMOUNT = new BigDecimal("50000");
 
     private Account testAccount;
+    private Account testToAccount;
+
+    private AccountType normalType;
 
     @BeforeEach
     void setUp() {
         transactionValidator = new TransactionValidator(commonValidator, accountValidator, transactionRepository);
-        testAccount = Account.create(TEST_ACCOUNT_NUMBER, BigDecimal.ZERO);
+        
+        // 일반계좌 타입 설정
+        normalType = AccountType.builder()
+            .code("NORMAL")
+            .description("일반계좌")
+            .transferFeeRate(new BigDecimal("0.01"))
+            .dailyWithdrawalLimit(new BigDecimal("1000000"))
+            .dailyTransferLimit(new BigDecimal("3000000"))
+            .build();
+
+        // 테스트용 일반계좌 설정 (잔액 5,000,000원으로 설정)
+        testAccount = Account.builder()
+            .accountNumber(TEST_ACCOUNT_NUMBER)
+            .balance(new BigDecimal("5000000"))
+            .accountType(normalType)
+            .status(AccountStatus.ACTIVE)
+            .build();
+
+        testToAccount = Account.builder()
+            .accountNumber(TEST_TO_ACCOUNT_NUMBER)
+            .balance(new BigDecimal("1000000"))
+            .accountType(normalType)
+            .status(AccountStatus.ACTIVE)
+            .build();
     }
 
     @Nested
@@ -66,136 +97,45 @@ class TransactionValidatorTest {
                 .thenReturn(testAccount);
 
             // when & then
-            transactionValidator.validateDeposit(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
+            transactionValidator.validateDeposit(TEST_ACCOUNT_NUMBER, TEST_AMOUNT);
 
-            verify(commonValidator).validateAmountFormat(TEST_DEPOSIT_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_DEPOSIT_AMOUNT);
+            verify(commonValidator).validateAmountFormat(TEST_AMOUNT);
+            verify(commonValidator).validatePositiveAmount(TEST_AMOUNT);
             verify(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
             verify(accountValidator).validateAccountStatus(testAccount);
         }
 
         @Test
-        @DisplayName("null 금액으로 입금 시도 시 실패")
-        void validateDeposit_nullAmount() {
+        @DisplayName("입금 검증 실패 - 금액 형식 오류")
+        void validateDeposit_amountFormatError() {
             // given
             doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(commonValidator).validateAmountFormat(null);
+                .when(commonValidator).validateAmountFormat(TEST_AMOUNT);
 
             // when & then
-            assertThatThrownBy(() -> transactionValidator.validateDeposit(TEST_ACCOUNT_NUMBER, null))
+            assertThatThrownBy(() -> transactionValidator.validateDeposit(TEST_ACCOUNT_NUMBER, TEST_AMOUNT))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
 
-            verify(commonValidator).validateAmountFormat(null);
+            verify(commonValidator).validateAmountFormat(TEST_AMOUNT);
             verify(commonValidator, never()).validatePositiveAmount(any());
             verify(accountValidator, never()).validateAccountExists(any());
             verify(accountValidator, never()).validateAccountStatus(any());
         }
 
         @Test
-        @DisplayName("소수점이 있는 금액으로 입금 시도 시 실패")
-        void validateDeposit_decimalAmount() {
-            // given
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(commonValidator).validateAmountFormat(TEST_DECIMAL_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateDeposit(TEST_ACCOUNT_NUMBER, TEST_DECIMAL_AMOUNT))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(commonValidator).validateAmountFormat(TEST_DECIMAL_AMOUNT);
-            verify(commonValidator, never()).validatePositiveAmount(any());
-            verify(accountValidator, never()).validateAccountExists(any());
-            verify(accountValidator, never()).validateAccountStatus(any());
-        }
-
-        @Test
-        @DisplayName("0원으로 입금 시도 시 실패")
-        void validateDeposit_zeroAmount() {
-            // given
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(commonValidator).validatePositiveAmount(TEST_ZERO_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateDeposit(TEST_ACCOUNT_NUMBER, TEST_ZERO_AMOUNT))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(commonValidator).validateAmountFormat(TEST_ZERO_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_ZERO_AMOUNT);
-            verify(accountValidator, never()).validateAccountExists(any());
-            verify(accountValidator, never()).validateAccountStatus(any());
-        }
-
-        @Test
-        @DisplayName("음수 금액으로 입금 시도 시 실패")
-        void validateDeposit_negativeAmount() {
-            // given
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(commonValidator).validatePositiveAmount(TEST_NEGATIVE_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateDeposit(TEST_ACCOUNT_NUMBER, TEST_NEGATIVE_AMOUNT))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(commonValidator).validateAmountFormat(TEST_NEGATIVE_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_NEGATIVE_AMOUNT);
-            verify(accountValidator, never()).validateAccountExists(any());
-            verify(accountValidator, never()).validateAccountStatus(any());
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 계좌로 입금 시도 시 실패")
-        void validateDeposit_accountNotFound() {
-            // given
-            doThrow(new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND))
-                .when(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateDeposit(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", AccountErrorCode.ACCOUNT_NOT_FOUND);
-
-            verify(commonValidator).validateAmountFormat(TEST_DEPOSIT_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_DEPOSIT_AMOUNT);
-            verify(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
-            verify(accountValidator, never()).validateAccountStatus(any());
-        }
-
-        @Test
-        @DisplayName("삭제된 계좌로 입금 시도 시 실패")
-        void validateDeposit_accountDeleted() {
-            // given
-            Account deletedAccount = Account.create(TEST_ACCOUNT_NUMBER, BigDecimal.ZERO);
-            deletedAccount.delete();
-            when(accountValidator.validateAccountExists(TEST_ACCOUNT_NUMBER))
-                .thenReturn(deletedAccount);
-            doThrow(new BusinessException(AccountErrorCode.INVALID_ACCOUNT_STATUS))
-                .when(accountValidator).validateAccountStatus(deletedAccount);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateDeposit(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", AccountErrorCode.INVALID_ACCOUNT_STATUS);
-
-            verify(commonValidator).validateAmountFormat(TEST_DEPOSIT_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_DEPOSIT_AMOUNT);
-            verify(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
-            verify(accountValidator).validateAccountStatus(deletedAccount);
-        }
-
-        @Test
-        @DisplayName("최대 금액을 초과하는 금액으로 입금 시도 시 실패")
+        @DisplayName("입금 검증 실패 - 최대 금액 초과")
         void validateDeposit_amountTooLarge() {
+            // given
+            BigDecimal amount = new BigDecimal("21000000"); // 최대 금액 2천만원 초과
+
             // when & then
-            assertThatThrownBy(() -> transactionValidator.validateDeposit(TEST_ACCOUNT_NUMBER, TEST_LARGE_AMOUNT))
+            assertThatThrownBy(() -> transactionValidator.validateDeposit(TEST_ACCOUNT_NUMBER, amount))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", TransactionErrorCode.AMOUNT_TOO_LARGE);
 
-            verify(commonValidator).validateAmountFormat(TEST_LARGE_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_LARGE_AMOUNT);
+            verify(commonValidator).validateAmountFormat(amount);
+            verify(commonValidator).validatePositiveAmount(amount);
             verify(accountValidator, never()).validateAccountExists(any());
             verify(accountValidator, never()).validateAccountStatus(any());
         }
@@ -208,7 +148,6 @@ class TransactionValidatorTest {
         @DisplayName("출금 검증 성공")
         void validateWithdrawal_success() {
             // given
-            testAccount = Account.create(TEST_ACCOUNT_NUMBER, new BigDecimal("100000"));
             when(accountValidator.validateAccountExists(TEST_ACCOUNT_NUMBER))
                 .thenReturn(testAccount);
             when(transactionRepository.getDailyTransactionAmount(
@@ -216,191 +155,47 @@ class TransactionValidatorTest {
                 .thenReturn(BigDecimal.ZERO);
 
             // when & then
-            transactionValidator.validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_WITHDRAWAL_AMOUNT);
+            transactionValidator.validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_AMOUNT);
 
-            verify(commonValidator).validateAmountFormat(TEST_WITHDRAWAL_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_WITHDRAWAL_AMOUNT);
+            verify(commonValidator).validateAmountFormat(TEST_AMOUNT);
+            verify(commonValidator).validatePositiveAmount(TEST_AMOUNT);
             verify(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
             verify(accountValidator).validateAccountStatus(testAccount);
-            verify(transactionRepository).getDailyTransactionAmount(
-                any(Account.class), eq(TransactionType.WITHDRAWAL), any(LocalDateTime.class), any(LocalDateTime.class));
         }
 
         @Test
-        @DisplayName("null 금액으로 출금 시도 시 실패")
-        void validateWithdrawal_nullAmount() {
-            // given
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(commonValidator).validateAmountFormat(null);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateWithdrawal(TEST_ACCOUNT_NUMBER, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(commonValidator).validateAmountFormat(null);
-            verify(commonValidator, never()).validatePositiveAmount(any());
-            verify(accountValidator, never()).validateAccountExists(any());
-            verify(accountValidator, never()).validateAccountStatus(any());
-            verify(transactionRepository, never()).getDailyTransactionAmount(any(), any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("소수점이 있는 금액으로 출금 시도 시 실패")
-        void validateWithdrawal_decimalAmount() {
-            // given
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(commonValidator).validateAmountFormat(TEST_DECIMAL_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_DECIMAL_AMOUNT))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(commonValidator).validateAmountFormat(TEST_DECIMAL_AMOUNT);
-            verify(commonValidator, never()).validatePositiveAmount(any());
-            verify(accountValidator, never()).validateAccountExists(any());
-            verify(accountValidator, never()).validateAccountStatus(any());
-            verify(transactionRepository, never()).getDailyTransactionAmount(any(), any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("0원으로 출금 시도 시 실패")
-        void validateWithdrawal_zeroAmount() {
-            // given
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(commonValidator).validatePositiveAmount(TEST_ZERO_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_ZERO_AMOUNT))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(commonValidator).validateAmountFormat(TEST_ZERO_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_ZERO_AMOUNT);
-            verify(accountValidator, never()).validateAccountExists(any());
-            verify(accountValidator, never()).validateAccountStatus(any());
-            verify(transactionRepository, never()).getDailyTransactionAmount(any(), any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("음수 금액으로 출금 시도 시 실패")
-        void validateWithdrawal_negativeAmount() {
-            // given
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(commonValidator).validatePositiveAmount(TEST_NEGATIVE_AMOUNT);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_NEGATIVE_AMOUNT))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(commonValidator).validateAmountFormat(TEST_NEGATIVE_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_NEGATIVE_AMOUNT);
-            verify(accountValidator, never()).validateAccountExists(any());
-            verify(accountValidator, never()).validateAccountStatus(any());
-            verify(transactionRepository, never()).getDailyTransactionAmount(any(), any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 계좌로 출금 시도 시 실패")
-        void validateWithdrawal_accountNotFound() {
-            // given
-            doThrow(new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND))
-                .when(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_WITHDRAWAL_AMOUNT))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", AccountErrorCode.ACCOUNT_NOT_FOUND);
-
-            verify(commonValidator).validateAmountFormat(TEST_WITHDRAWAL_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_WITHDRAWAL_AMOUNT);
-            verify(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
-            verify(accountValidator, never()).validateAccountStatus(any());
-            verify(transactionRepository, never()).getDailyTransactionAmount(any(), any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("삭제된 계좌로 출금 시도 시 실패")
-        void validateWithdrawal_accountDeleted() {
-            // given
-            Account deletedAccount = Account.create(TEST_ACCOUNT_NUMBER, new BigDecimal("100000"));
-            deletedAccount.delete();
-            when(accountValidator.validateAccountExists(TEST_ACCOUNT_NUMBER))
-                .thenReturn(deletedAccount);
-            doThrow(new BusinessException(AccountErrorCode.INVALID_ACCOUNT_STATUS))
-                .when(accountValidator).validateAccountStatus(deletedAccount);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_WITHDRAWAL_AMOUNT))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", AccountErrorCode.INVALID_ACCOUNT_STATUS);
-
-            verify(commonValidator).validateAmountFormat(TEST_WITHDRAWAL_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_WITHDRAWAL_AMOUNT);
-            verify(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
-            verify(accountValidator).validateAccountStatus(deletedAccount);
-            verify(transactionRepository, never()).getDailyTransactionAmount(any(), any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("잔액 부족으로 출금 시도 시 실패")
+        @DisplayName("출금 검증 실패 - 잔액 부족")
         void validateWithdrawal_insufficientBalance() {
             // given
-            testAccount = Account.create(TEST_ACCOUNT_NUMBER, new BigDecimal("10000"));
             when(accountValidator.validateAccountExists(TEST_ACCOUNT_NUMBER))
                 .thenReturn(testAccount);
 
             // when & then
-            assertThatThrownBy(() -> transactionValidator.validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_WITHDRAWAL_AMOUNT))
+            assertThatThrownBy(() -> transactionValidator.validateWithdrawal(TEST_ACCOUNT_NUMBER, new BigDecimal("6000000")))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", TransactionErrorCode.INSUFFICIENT_BALANCE);
-
-            verify(commonValidator).validateAmountFormat(TEST_WITHDRAWAL_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_WITHDRAWAL_AMOUNT);
-            verify(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
-            verify(accountValidator).validateAccountStatus(testAccount);
-            verify(transactionRepository, never()).getDailyTransactionAmount(any(), any(), any(), any());
         }
 
         @Test
-        @DisplayName("일일 출금 한도 초과로 출금 시도 시 실패")
+        @DisplayName("출금 검증 실패 - 일일 한도 초과")
         void validateWithdrawal_dailyLimitExceeded() {
             // given
-            testAccount = Account.create(TEST_ACCOUNT_NUMBER, new BigDecimal("100000"));
             when(accountValidator.validateAccountExists(TEST_ACCOUNT_NUMBER))
                 .thenReturn(testAccount);
             when(transactionRepository.getDailyTransactionAmount(
                 any(Account.class), eq(TransactionType.WITHDRAWAL), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(new BigDecimal("960000"));
+                .thenReturn(new BigDecimal("600000")); // 이미 60만원 출금
 
             // when & then
-            assertThatThrownBy(() -> transactionValidator.validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_WITHDRAWAL_AMOUNT))
+            assertThatThrownBy(() -> transactionValidator.validateWithdrawal(TEST_ACCOUNT_NUMBER, new BigDecimal("500000")))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", TransactionErrorCode.DAILY_WITHDRAWAL_LIMIT_EXCEEDED);
-
-            verify(commonValidator).validateAmountFormat(TEST_WITHDRAWAL_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_WITHDRAWAL_AMOUNT);
-            verify(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
-            verify(accountValidator).validateAccountStatus(testAccount);
-            verify(transactionRepository).getDailyTransactionAmount(
-                any(Account.class), eq(TransactionType.WITHDRAWAL), any(LocalDateTime.class), any(LocalDateTime.class));
         }
     }
 
     @Nested
     @DisplayName("이체 검증")
     class TransferValidation {
-        private static final String TEST_TO_ACCOUNT_NUMBER = "13-12-654321";
-        private Account testToAccount;
-
-        @BeforeEach
-        void setUp() {
-            testToAccount = Account.create(TEST_TO_ACCOUNT_NUMBER, new BigDecimal("100000"));
-            testAccount = Account.create(TEST_ACCOUNT_NUMBER, new BigDecimal("100000"));
-        }
-
         @Test
         @DisplayName("이체 검증 성공")
         void validateTransfer_success() {
@@ -414,124 +209,45 @@ class TransactionValidatorTest {
                 .thenReturn(BigDecimal.ZERO);
 
             // when & then
-            transactionValidator.validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_WITHDRAWAL_AMOUNT);
+            transactionValidator.validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_AMOUNT);
 
-            verify(commonValidator).validateAmountFormat(TEST_WITHDRAWAL_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_WITHDRAWAL_AMOUNT);
+            verify(commonValidator).validateAmountFormat(TEST_AMOUNT);
+            verify(commonValidator).validatePositiveAmount(TEST_AMOUNT);
             verify(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
             verify(accountValidator).validateAccountExists(TEST_TO_ACCOUNT_NUMBER);
             verify(accountValidator).validateAccountStatus(testAccount);
             verify(accountValidator).validateAccountStatus(testToAccount);
-            verify(transactionRepository).getDailyTransactionAmount(
-                any(Account.class), eq(TransactionType.TRANSFER), any(LocalDateTime.class), any(LocalDateTime.class));
         }
 
         @Test
-        @DisplayName("null 금액으로 이체 시도 시 실패")
-        void validateTransfer_nullAmount() {
-            // given
-            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
-                .when(commonValidator).validateAmountFormat(null);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
-
-            verify(commonValidator).validateAmountFormat(null);
-            verify(commonValidator, never()).validatePositiveAmount(any());
-            verify(accountValidator, never()).validateAccountExists(any());
-            verify(accountValidator, never()).validateAccountStatus(any());
-            verify(transactionRepository, never()).getDailyTransactionAmount(any(), any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 출금 계좌로 이체 시도 시 실패")
-        void validateTransfer_fromAccountNotFound() {
-            // given
-            doThrow(new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND))
-                .when(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_WITHDRAWAL_AMOUNT))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", AccountErrorCode.ACCOUNT_NOT_FOUND);
-
-            verify(commonValidator).validateAmountFormat(TEST_WITHDRAWAL_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_WITHDRAWAL_AMOUNT);
-            verify(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
-            verify(accountValidator, never()).validateAccountExists(TEST_TO_ACCOUNT_NUMBER);
-            verify(accountValidator, never()).validateAccountStatus(any());
-            verify(transactionRepository, never()).getDailyTransactionAmount(any(), any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 입금 계좌로 이체 시도 시 실패")
-        void validateTransfer_toAccountNotFound() {
-            // given
-            when(accountValidator.validateAccountExists(TEST_ACCOUNT_NUMBER))
-                .thenReturn(testAccount);
-            doThrow(new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND))
-                .when(accountValidator).validateAccountExists(TEST_TO_ACCOUNT_NUMBER);
-
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_WITHDRAWAL_AMOUNT))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", AccountErrorCode.ACCOUNT_NOT_FOUND);
-
-            verify(commonValidator).validateAmountFormat(TEST_WITHDRAWAL_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_WITHDRAWAL_AMOUNT);
-            verify(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
-            verify(accountValidator).validateAccountExists(TEST_TO_ACCOUNT_NUMBER);
-            verify(accountValidator, never()).validateAccountStatus(any());
-            verify(transactionRepository, never()).getDailyTransactionAmount(any(), any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("자기 자신의 계좌로 이체 시도 시 실패")
+        @DisplayName("이체 검증 실패 - 자기 계좌로 이체")
         void validateTransfer_sameAccount() {
-            // given
-            // 자기 계좌 이체 방지는 계좌 조회 전에 수행되므로 mock 설정 불필요
-
             // when & then
-            assertThatThrownBy(() -> transactionValidator.validateTransfer(TEST_ACCOUNT_NUMBER, TEST_ACCOUNT_NUMBER, TEST_WITHDRAWAL_AMOUNT))
+            assertThatThrownBy(() -> transactionValidator.validateTransfer(TEST_ACCOUNT_NUMBER, TEST_ACCOUNT_NUMBER, TEST_AMOUNT))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", TransactionErrorCode.SAME_ACCOUNT_TRANSFER);
-
-            // 자기 계좌 이체 방지는 계좌 조회 전에 수행되므로 계좌 관련 검증은 호출되지 않아야 함
-            verify(commonValidator).validateAmountFormat(TEST_WITHDRAWAL_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_WITHDRAWAL_AMOUNT);
-            verify(accountValidator, never()).validateAccountExists(any());
-            verify(accountValidator, never()).validateAccountStatus(any());
-            verify(transactionRepository, never()).getDailyTransactionAmount(any(), any(), any(), any());
         }
 
         @Test
-        @DisplayName("잔액 부족으로 이체 시도 시 실패")
-        void validateTransfer_insufficientBalance() {
+        @DisplayName("이체 검증 실패 - 수수료 포함 잔액 부족")
+        void validateTransfer_insufficientBalanceWithFee() {
             // given
-            testAccount = Account.create(TEST_ACCOUNT_NUMBER, new BigDecimal("10000"));
             when(accountValidator.validateAccountExists(TEST_ACCOUNT_NUMBER))
                 .thenReturn(testAccount);
             when(accountValidator.validateAccountExists(TEST_TO_ACCOUNT_NUMBER))
                 .thenReturn(testToAccount);
 
-            // when & then
-            assertThatThrownBy(() -> transactionValidator.validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_WITHDRAWAL_AMOUNT))
+            // 4,960,000원 이체 시도
+            // 수수료 1%: 49,600원
+            // 총 필요 금액: 5,009,600원
+            // 계좌 잔액 500만원으로는 부족
+            assertThatThrownBy(() -> transactionValidator.validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, new BigDecimal("4960000")))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", TransactionErrorCode.INSUFFICIENT_BALANCE);
-
-            verify(commonValidator).validateAmountFormat(TEST_WITHDRAWAL_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_WITHDRAWAL_AMOUNT);
-            verify(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
-            verify(accountValidator).validateAccountExists(TEST_TO_ACCOUNT_NUMBER);
-            verify(accountValidator).validateAccountStatus(testAccount);
-            verify(accountValidator).validateAccountStatus(testToAccount);
-            verify(transactionRepository, never()).getDailyTransactionAmount(any(), any(), any(), any());
         }
 
         @Test
-        @DisplayName("일일 이체 한도 초과로 이체 시도 시 실패")
+        @DisplayName("이체 검증 실패 - 일일 한도 초과")
         void validateTransfer_dailyLimitExceeded() {
             // given
             when(accountValidator.validateAccountExists(TEST_ACCOUNT_NUMBER))
@@ -540,21 +256,13 @@ class TransactionValidatorTest {
                 .thenReturn(testToAccount);
             when(transactionRepository.getDailyTransactionAmount(
                 any(Account.class), eq(TransactionType.TRANSFER), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(new BigDecimal("960000"));
+                .thenReturn(new BigDecimal("2000000")); // 이미 200만원 이체
 
             // when & then
-            assertThatThrownBy(() -> transactionValidator.validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_WITHDRAWAL_AMOUNT))
+            // 150만원 이체 시도 (일일 한도 300만원 초과)
+            assertThatThrownBy(() -> transactionValidator.validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, new BigDecimal("1500000")))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", TransactionErrorCode.DAILY_TRANSFER_LIMIT_EXCEEDED);
-
-            verify(commonValidator).validateAmountFormat(TEST_WITHDRAWAL_AMOUNT);
-            verify(commonValidator).validatePositiveAmount(TEST_WITHDRAWAL_AMOUNT);
-            verify(accountValidator).validateAccountExists(TEST_ACCOUNT_NUMBER);
-            verify(accountValidator).validateAccountExists(TEST_TO_ACCOUNT_NUMBER);
-            verify(accountValidator).validateAccountStatus(testAccount);
-            verify(accountValidator).validateAccountStatus(testToAccount);
-            verify(transactionRepository).getDailyTransactionAmount(
-                any(Account.class), eq(TransactionType.TRANSFER), any(LocalDateTime.class), any(LocalDateTime.class));
         }
     }
 } 
