@@ -35,10 +35,11 @@ public class Account extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private AccountStatus status;
 
-    public static Account create(String accountNumber, BigDecimal initialBalance) {
+    public static Account create(String accountNumber, BigDecimal initialBalance, AccountType accountType) {
         return Account.builder()
                 .accountNumber(accountNumber)
                 .balance(initialBalance)
+                .accountType(accountType)
                 .status(AccountStatus.ACTIVE)
                 .build();
     }

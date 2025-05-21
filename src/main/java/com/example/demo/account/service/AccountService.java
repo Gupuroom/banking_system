@@ -3,8 +3,10 @@ package com.example.demo.account.service;
 import com.example.demo.account.dto.AccountCreateRequest;
 import com.example.demo.account.dto.AccountResponse;
 import com.example.demo.account.entity.Account;
+import com.example.demo.account.entity.AccountType;
 import com.example.demo.account.error.AccountErrorCode;
 import com.example.demo.account.repository.AccountRepository;
+import com.example.demo.account.repository.AccountTypeRepository;
 import com.example.demo.common.error.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AccountService {
 
     private final AccountRepository accountRepository;
+    private final AccountTypeRepository accountTypeRepository;
 
     @Transactional
     public AccountResponse createAccount(AccountCreateRequest request) {
@@ -23,7 +26,11 @@ public class AccountService {
             throw new BusinessException(AccountErrorCode.ACCOUNT_ALREADY_EXISTS);
         }
 
-        Account account = Account.create(request.accountNumber(), request.initialBalance());
+        // 기본 type 은 1이라고 가정한다. data.sql 참고
+        AccountType accountType = accountTypeRepository.findById(1L)
+                .orElseThrow(() -> new BusinessException(AccountErrorCode.ACCOUNT_TYPE_NOT_FOUND));
+
+        Account account = Account.create(request.accountNumber(), request.initialBalance(), accountType);
         Account savedAccount = accountRepository.save(account);
 
         return AccountResponse.from(savedAccount);
