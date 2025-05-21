@@ -10,18 +10,29 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
-    
+
     // 거래 내역이 없어도 0을 반환
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
-           "WHERE t.account = :account AND t.type = :type " +
-           "AND t.createdAt >= :startOfDay AND t.createdAt < :endOfDay")
+            "WHERE t.account = :account AND t.type = :type " +
+            "AND t.createdAt >= :startOfDay AND t.createdAt < :endOfDay")
     BigDecimal getDailyTransactionAmount(
             @Param("account") Account account,
             @Param("type") TransactionType type,
             @Param("startOfDay") LocalDateTime startOfDay,
             @Param("endOfDay") LocalDateTime endOfDay
     );
-} 
+
+    // 계좌의 모든 거래 내역을 최신순으로 조회
+    @Query("SELECT DISTINCT t FROM Transaction t " +
+            "JOIN FETCH t.account a " +
+            "WHERE a.accountNumber = :accountNumber " +
+            "ORDER BY t.createdAt DESC")
+    List<Transaction> findByAccountNumberOrderByCreatedAtDesc(@Param("accountNumber") String accountNumber);
+
+    @Query("SELECT COUNT(t) FROM Transaction t WHERE t.account.accountNumber = :accountNumber")
+    long countByAccountNumber(@Param("accountNumber") String accountNumber);
+}

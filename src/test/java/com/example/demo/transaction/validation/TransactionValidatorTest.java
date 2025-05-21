@@ -205,7 +205,7 @@ class TransactionValidatorTest {
             when(accountValidator.validateAccountExists(TEST_TO_ACCOUNT_NUMBER))
                 .thenReturn(testToAccount);
             when(transactionRepository.getDailyTransactionAmount(
-                any(Account.class), eq(TransactionType.TRANSFER), any(LocalDateTime.class), any(LocalDateTime.class)))
+                any(Account.class), eq(TransactionType.TRANSFER_OUT), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(BigDecimal.ZERO);
 
             // when & then
@@ -255,7 +255,7 @@ class TransactionValidatorTest {
             when(accountValidator.validateAccountExists(TEST_TO_ACCOUNT_NUMBER))
                 .thenReturn(testToAccount);
             when(transactionRepository.getDailyTransactionAmount(
-                any(Account.class), eq(TransactionType.TRANSFER), any(LocalDateTime.class), any(LocalDateTime.class)))
+                any(Account.class), eq(TransactionType.TRANSFER_OUT), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(new BigDecimal("2000000")); // 이미 200만원 이체
 
             // when & then

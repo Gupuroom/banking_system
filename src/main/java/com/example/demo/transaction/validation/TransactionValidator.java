@@ -116,7 +116,7 @@ public class TransactionValidator {
         LocalDateTime endOfDay = now.with(LocalTime.MAX);
 
         BigDecimal dailyAmount = transactionRepository.getDailyTransactionAmount(
-            account, TransactionType.TRANSFER, startOfDay, endOfDay);
+            account, TransactionType.TRANSFER_OUT, startOfDay, endOfDay);
         
         if (dailyAmount == null) {
             dailyAmount = BigDecimal.ZERO;

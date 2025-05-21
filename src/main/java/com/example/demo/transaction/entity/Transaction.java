@@ -59,7 +59,7 @@ public class Transaction extends BaseEntity {
                 .build();
     }
 
-    public static Transaction createTransfer(
+    public static Transaction createTransferOut(
         Account account,
         BigDecimal amount,
         BigDecimal fee,
@@ -68,7 +68,24 @@ public class Transaction extends BaseEntity {
     ) {
         return Transaction.builder()
                 .account(account)
-                .type(TransactionType.TRANSFER)
+                .type(TransactionType.TRANSFER_OUT)
+                .amount(amount)
+                .balanceAfterTransaction(balanceAfterTransaction)
+                .fee(fee)
+                .relatedAccountNumber(relatedAccountNumber)
+                .build();
+    }
+
+    public static Transaction createTransferIn(
+        Account account,
+        BigDecimal amount,
+        BigDecimal fee,
+        BigDecimal balanceAfterTransaction,
+        String relatedAccountNumber
+    ) {
+        return Transaction.builder()
+                .account(account)
+                .type(TransactionType.TRANSFER_IN)
                 .amount(amount)
                 .balanceAfterTransaction(balanceAfterTransaction)
                 .fee(fee)

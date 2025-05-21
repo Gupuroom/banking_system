@@ -240,13 +240,7 @@ class TransactionServiceTest {
             when(accountRepository.findByAccountNumber(toAccountNumber))
                 .thenReturn(Optional.of(toAccount));
             when(transactionRepository.save(any(Transaction.class)))
-                .thenAnswer(invocation -> {
-                    Transaction transaction = invocation.getArgument(0);
-                    if (transaction.getAccount().getAccountNumber().equals(fromAccountNumber)) {
-                        return transaction;  // 출금 계좌의 거래 내역을 반환
-                    }
-                    return transaction;
-                });
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             TransactionResponse response = transactionService.transfer(fromAccountNumber, toAccountNumber, request);
@@ -258,7 +252,7 @@ class TransactionServiceTest {
             BigDecimal expectedToBalance = new BigDecimal("1100000"); // 1,000,000 + 100,000
 
             assertThat(response.amount()).isEqualTo(amount);
-            assertThat(response.type()).isEqualTo(TransactionType.TRANSFER);
+            assertThat(response.type()).isEqualTo(TransactionType.TRANSFER_OUT);
             assertThat(response.fee()).isEqualTo(expectedFee);
             assertThat(fromAccount.getBalance()).isEqualTo(expectedFromBalance);
             assertThat(toAccount.getBalance()).isEqualTo(expectedToBalance);
