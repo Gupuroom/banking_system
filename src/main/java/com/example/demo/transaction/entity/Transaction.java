@@ -58,4 +58,15 @@ public class Transaction extends BaseEntity {
                 .fee(BigDecimal.ZERO)
                 .build();
     }
+
+    public static Transaction createTransfer(Account account, Account relatedAccount, BigDecimal amount) {
+        return Transaction.builder()
+                .account(account)
+                .type(TransactionType.TRANSFER)
+                .amount(amount)
+                .balanceAfterTransaction(account.getBalance())
+                .fee(BigDecimal.ZERO)
+                .relatedAccountNumber(relatedAccount.getAccountNumber())
+                .build();
+    }
 } 

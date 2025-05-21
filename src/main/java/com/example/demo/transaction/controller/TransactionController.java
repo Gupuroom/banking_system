@@ -3,7 +3,6 @@ package com.example.demo.transaction.controller;
 import com.example.demo.transaction.dto.TransactionRequest;
 import com.example.demo.transaction.dto.TransactionResponse;
 import com.example.demo.transaction.service.TransactionService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +23,15 @@ public class TransactionController {
     @PostMapping("/api/accounts/{accountNumber}/withdraw")
     public ResponseEntity<TransactionResponse> withdraw(@PathVariable String accountNumber, @RequestBody TransactionRequest request) {
         TransactionResponse response = transactionService.withdraw(accountNumber, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/api/accounts/{fromAccountNumber}/transfer/{toAccountNumber}")
+    public ResponseEntity<TransactionResponse> transfer(
+            @PathVariable String fromAccountNumber,
+            @PathVariable String toAccountNumber,
+            @RequestBody TransactionRequest request) {
+        TransactionResponse response = transactionService.transfer(fromAccountNumber, toAccountNumber, request);
         return ResponseEntity.ok(response);
     }
 } 

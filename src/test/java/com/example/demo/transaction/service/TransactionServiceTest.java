@@ -349,4 +349,136 @@ class TransactionServiceTest {
             verify(transactionRepository, never()).save(any());
         }
     }
+
+    @Nested
+    @DisplayName("이체")
+    class Transfer {
+        private static final String TEST_TO_ACCOUNT_NUMBER = "13-12-654321";
+        private Account testToAccount;
+
+        @BeforeEach
+        void setUp() {
+            testToAccount = Account.create(TEST_TO_ACCOUNT_NUMBER, TEST_INITIAL_BALANCE);
+        }
+
+        @Test
+        @DisplayName("이체 성공")
+        void transfer_success() {
+            // given
+            TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
+            Transaction transaction = Transaction.createTransfer(testAccount, testToAccount, TEST_DEPOSIT_AMOUNT);
+            when(accountRepository.findByAccountNumber(TEST_ACCOUNT_NUMBER))
+                .thenReturn(Optional.of(testAccount));
+            when(accountRepository.findByAccountNumber(TEST_TO_ACCOUNT_NUMBER))
+                .thenReturn(Optional.of(testToAccount));
+            when(transactionRepository.save(any(Transaction.class)))
+                .thenReturn(transaction);
+
+            // when
+            TransactionResponse response = transactionService.transfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, request);
+
+            // then
+            assertThat(response.accountNumber()).isEqualTo(TEST_ACCOUNT_NUMBER);
+            assertThat(response.amount()).isEqualTo(TEST_DEPOSIT_AMOUNT);
+            assertThat(response.type()).isEqualTo(TransactionType.TRANSFER);
+            assertThat(response.relatedAccountNumber()).isEqualTo(TEST_TO_ACCOUNT_NUMBER);
+            assertThat(testAccount.getBalance()).isEqualTo(TEST_INITIAL_BALANCE.subtract(TEST_DEPOSIT_AMOUNT));
+            assertThat(testToAccount.getBalance()).isEqualTo(TEST_INITIAL_BALANCE.add(TEST_DEPOSIT_AMOUNT));
+
+            verify(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
+            verify(accountRepository).findByAccountNumber(TEST_ACCOUNT_NUMBER);
+            verify(accountRepository).findByAccountNumber(TEST_TO_ACCOUNT_NUMBER);
+            verify(transactionRepository).save(any(Transaction.class));
+        }
+
+        @Test
+        @DisplayName("null 금액으로 이체 시도 시 실패")
+        void transfer_nullAmount() {
+            // given
+            TransactionRequest request = new TransactionRequest(null);
+            doThrow(new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE))
+                .when(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, null);
+
+            // when & then
+            assertThatThrownBy(() -> transactionService.transfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
+
+            verify(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, null);
+            verify(accountRepository, never()).findByAccountNumber(any());
+            verify(transactionRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 출금 계좌로 이체 시도 시 실패")
+        void transfer_fromAccountNotFound() {
+            // given
+            TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
+            doThrow(new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND))
+                .when(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
+
+            // when & then
+            assertThatThrownBy(() -> transactionService.transfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", AccountErrorCode.ACCOUNT_NOT_FOUND);
+
+            verify(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
+            verify(accountRepository, never()).findByAccountNumber(any());
+            verify(transactionRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 입금 계좌로 이체 시도 시 실패")
+        void transfer_toAccountNotFound() {
+            // given
+            TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
+            doThrow(new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND))
+                .when(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
+
+            // when & then
+            assertThatThrownBy(() -> transactionService.transfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", AccountErrorCode.ACCOUNT_NOT_FOUND);
+
+            verify(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
+            verify(accountRepository, never()).findByAccountNumber(any());
+            verify(transactionRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("잔액 부족으로 이체 시도 시 실패")
+        void transfer_insufficientBalance() {
+            // given
+            TransactionRequest request = new TransactionRequest(TEST_LARGE_AMOUNT);
+            doThrow(new BusinessException(TransactionErrorCode.INSUFFICIENT_BALANCE))
+                .when(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_LARGE_AMOUNT);
+
+            // when & then
+            assertThatThrownBy(() -> transactionService.transfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", TransactionErrorCode.INSUFFICIENT_BALANCE);
+
+            verify(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_TO_ACCOUNT_NUMBER, TEST_LARGE_AMOUNT);
+            verify(accountRepository, never()).findByAccountNumber(any());
+            verify(transactionRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("자기 자신의 계좌로 이체 시도 시 실패")
+        void transfer_sameAccount() {
+            // given
+            TransactionRequest request = new TransactionRequest(TEST_DEPOSIT_AMOUNT);
+            doThrow(new BusinessException(TransactionErrorCode.SAME_ACCOUNT_TRANSFER))
+                .when(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
+
+            // when & then
+            assertThatThrownBy(() -> transactionService.transfer(TEST_ACCOUNT_NUMBER, TEST_ACCOUNT_NUMBER, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", TransactionErrorCode.SAME_ACCOUNT_TRANSFER);
+
+            verify(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
+            verify(accountRepository, never()).findByAccountNumber(any());
+            verify(transactionRepository, never()).save(any());
+        }
+    }
 }

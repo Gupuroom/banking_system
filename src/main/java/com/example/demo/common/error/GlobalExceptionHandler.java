@@ -23,6 +23,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception e, HttpServletRequest request) {
+        e.printStackTrace();
         return ResponseEntity.status(500).body(new ErrorResponse(CommonErrorCode.INTERNAL_SERVER_ERROR));
     }
 

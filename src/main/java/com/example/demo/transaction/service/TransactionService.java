@@ -53,4 +53,24 @@ public class TransactionService {
 
         return TransactionResponse.from(savedTransaction);
     }
+
+    @Transactional
+    public TransactionResponse transfer(String fromAccountNumber, String toAccountNumber, TransactionRequest request) {
+        // 검증
+        transactionValidator.validateTransfer(fromAccountNumber, toAccountNumber, request.amount());
+
+        // 계좌 조회
+        Account fromAccount = accountRepository.findByAccountNumber(fromAccountNumber).get();
+        Account toAccount = accountRepository.findByAccountNumber(toAccountNumber).get();
+
+        // 이체 처리
+        fromAccount.withdraw(request.amount());
+        toAccount.deposit(request.amount());
+
+        // 이체 거래 내역 생성 및 저장
+        Transaction transaction = Transaction.createTransfer(fromAccount, toAccount, request.amount());
+        Transaction savedTransaction = transactionRepository.save(transaction);
+
+        return TransactionResponse.from(savedTransaction);
+    }
 }

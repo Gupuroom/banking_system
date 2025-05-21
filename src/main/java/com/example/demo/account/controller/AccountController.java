@@ -16,6 +16,7 @@ public class AccountController {
 
     @PostMapping("/api/accounts")
     public ResponseEntity<AccountResponse> createAccount(@RequestBody AccountCreateRequest request) {
+        System.out.println("request = " + request);
         AccountResponse response = accountService.createAccount(request);
         return ResponseEntity.ok(response);
     }

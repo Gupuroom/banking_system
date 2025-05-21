@@ -71,4 +71,50 @@ public class TransactionValidator {
             throw new BusinessException(TransactionErrorCode.DAILY_WITHDRAWAL_LIMIT_EXCEEDED);
         }
     }
+
+    public void validateTransfer(String fromAccountNumber, String toAccountNumber, BigDecimal amount) {
+        // 기본 금액 검증
+        commonValidator.validateAmountFormat(amount);
+        commonValidator.validatePositiveAmount(amount);
+        validateMaxAmount(amount);
+
+        // 자기 계좌 이체 방지 (계좌 존재 여부 검증 전에 수행)
+        if (fromAccountNumber.equals(toAccountNumber)) {
+            throw new BusinessException(TransactionErrorCode.SAME_ACCOUNT_TRANSFER);
+        }
+
+        // 계좌 존재 여부 검증
+        Account fromAccount = accountValidator.validateAccountExists(fromAccountNumber);
+        Account toAccount = accountValidator.validateAccountExists(toAccountNumber);
+
+        // 계좌 상태 검증
+        accountValidator.validateAccountStatus(fromAccount);
+        accountValidator.validateAccountStatus(toAccount);
+
+        // 잔액 검증 (일일 이체 한도 검증보다 먼저 수행)
+        if (fromAccount.getBalance().compareTo(amount) < 0) {
+            throw new BusinessException(TransactionErrorCode.INSUFFICIENT_BALANCE);
+        }
+
+        // 일일 이체 한도 검증
+        validateDailyTransferLimit(fromAccount, amount);
+    }
+
+    private void validateDailyTransferLimit(Account account, BigDecimal amount) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
+        LocalDateTime endOfDay = startOfDay.plusDays(1);
+
+        BigDecimal dailyAmount = transactionRepository.getDailyTransactionAmount(
+            account, TransactionType.TRANSFER, startOfDay, endOfDay);
+        
+        // null 체크 추가
+        if (dailyAmount == null) {
+            dailyAmount = BigDecimal.ZERO;
+        }
+
+        if (dailyAmount.add(amount).compareTo(DAILY_WITHDRAWAL_LIMIT) > 0) {
+            throw new BusinessException(TransactionErrorCode.DAILY_TRANSFER_LIMIT_EXCEEDED);
+        }
+    }
 }
