@@ -16,15 +16,15 @@ public record TransactionHistoryResponse(
     String relatedAccountNumber,
     LocalDateTime createdAt
 ) {
-    public static TransactionHistoryResponse from(TransactionResponse transaction) {
+    public static TransactionHistoryResponse from(Transaction transaction) {
         return TransactionHistoryResponse.builder()
-            .id(transaction.id())
-            .type(transaction.type())
-            .amount(transaction.amount())
-            .fee(transaction.fee())
-            .balanceAfterTransaction(transaction.balanceAfterTransaction())
-            .relatedAccountNumber(transaction.relatedAccountNumber())
-            .createdAt(transaction.createdAt())
+            .id(transaction.getId())
+            .type(transaction.getType())
+            .amount(transaction.getAmount())
+            .fee(transaction.getFee())
+            .balanceAfterTransaction(transaction.getBalanceAfterTransaction())
+            .relatedAccountNumber(transaction.getRelatedAccountNumber())
+            .createdAt(transaction.getCreatedAt())
             .build();
     }
 } 

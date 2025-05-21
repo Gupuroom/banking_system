@@ -116,21 +116,7 @@ public class TransactionService {
         // 계좌 존재 여부 검증
         accountValidator.validateAccountExists(accountNumber);
 
-        // 전체 거래 내역 조회 (fetch join)
-        List<Transaction> transactions = transactionRepository.findByAccountNumberOrderByCreatedAtDesc(accountNumber);
-
-        // 전체 거래 수 조회
-        long total = transactionRepository.countByAccountNumber(accountNumber);
-
-        // 페이징 처리
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), transactions.size());
-
-        // 페이징된 거래 내역을 DTO로 변환
-        List<TransactionHistoryResponse> content = transactions.subList(start, end).stream()
-            .map(transaction -> TransactionHistoryResponse.from(TransactionResponse.from(transaction)))
-            .toList();
-
-        return new PageImpl<>(content, pageable, total);
+        Page<Transaction> transactions = transactionRepository.findByAccountNumberOrderByIdDesc(accountNumber, pageable);
+        return transactions.map(TransactionHistoryResponse::from);
     }
 }
