@@ -35,4 +35,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.account.accountNumber = :accountNumber")
     long countByAccountNumber(@Param("accountNumber") String accountNumber);
+
+    List<Transaction> findByAccountOrderByIdDesc(Account account);
 }

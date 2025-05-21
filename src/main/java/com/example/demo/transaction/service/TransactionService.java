@@ -1,12 +1,15 @@
 package com.example.demo.transaction.service;
 
 import com.example.demo.account.entity.Account;
+import com.example.demo.account.error.AccountErrorCode;
 import com.example.demo.account.repository.AccountRepository;
 import com.example.demo.account.validation.AccountValidator;
+import com.example.demo.common.error.BusinessException;
 import com.example.demo.transaction.dto.TransactionHistoryResponse;
 import com.example.demo.transaction.dto.TransactionRequest;
 import com.example.demo.transaction.dto.TransactionResponse;
 import com.example.demo.transaction.entity.Transaction;
+import com.example.demo.transaction.error.TransactionErrorCode;
 import com.example.demo.transaction.repository.TransactionRepository;
 import com.example.demo.transaction.validation.TransactionValidator;
 import lombok.RequiredArgsConstructor;
@@ -33,9 +36,12 @@ public class TransactionService {
         // 검증
         transactionValidator.validateDeposit(accountNumber, request.amount());
 
-        // 거래 처리
-        Account account = accountRepository.findByAccountNumber(accountNumber).get();
+        // 거래 처리 (비관적 락 적용)
+        Account account = accountRepository.findByAccountNumberWithLock(accountNumber)
+            .orElseThrow(() -> new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND));
         account.deposit(request.amount());
+        
+        // 거래 내역 저장
         Transaction transaction = Transaction.createDeposit(account, request.amount());
         Transaction savedTransaction = transactionRepository.save(transaction);
 
@@ -47,15 +53,13 @@ public class TransactionService {
         // 검증
         transactionValidator.validateWithdrawal(accountNumber, request.amount());
 
-        // 거래 처리
-        Account account = accountRepository.findByAccountNumber(accountNumber).get();
+        // 거래 처리 (비관적 락 적용)
+        Account account = accountRepository.findByAccountNumberWithLock(accountNumber)
+            .orElseThrow(() -> new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND));
         account.withdraw(request.amount());
+        
+        // 거래 내역 저장
         Transaction transaction = Transaction.createWithdrawal(account, request.amount());
-
-        // 로그 추가
-        System.out.println("Transaction type: " + transaction.getType());
-        System.out.println("Transaction type name: " + transaction.getType().name());
-
         Transaction savedTransaction = transactionRepository.save(transaction);
 
         return TransactionResponse.from(savedTransaction);
@@ -66,9 +70,11 @@ public class TransactionService {
         // 1. 이체 검증
         transactionValidator.validateTransfer(fromAccountNumber, toAccountNumber, request.amount());
 
-        // 2. 계좌 조회
-        Account fromAccount = accountRepository.findByAccountNumber(fromAccountNumber).get();
-        Account toAccount = accountRepository.findByAccountNumber(toAccountNumber).get();
+        // 2. 계좌 조회 (비관적 락 적용)
+        Account fromAccount = accountRepository.findByAccountNumberWithLock(fromAccountNumber)
+            .orElseThrow(() -> new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND));
+        Account toAccount = accountRepository.findByAccountNumberWithLock(toAccountNumber)
+            .orElseThrow(() -> new BusinessException(AccountErrorCode.ACCOUNT_NOT_FOUND));
 
         // 3. 수수료 계산
         BigDecimal fee = fromAccount.calculateTransferFee(request.amount());

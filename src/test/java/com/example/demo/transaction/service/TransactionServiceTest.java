@@ -122,7 +122,7 @@ class TransactionServiceTest {
             BigDecimal amount = new BigDecimal("100000");
             TransactionRequest request = new TransactionRequest(amount);
 
-            when(accountRepository.findByAccountNumber(accountNumber))
+            when(accountRepository.findByAccountNumberWithLock(accountNumber))
                 .thenReturn(Optional.of(normalAccount));
             when(transactionRepository.save(any(Transaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -137,7 +137,7 @@ class TransactionServiceTest {
             assertThat(normalAccount.getBalance()).isEqualTo(new BigDecimal("1100000"));
 
             verify(transactionValidator).validateDeposit(accountNumber, amount);
-            verify(accountRepository).findByAccountNumber(accountNumber);
+            verify(accountRepository).findByAccountNumberWithLock(accountNumber);
             verify(transactionRepository).save(any(Transaction.class));
         }
 
@@ -155,7 +155,7 @@ class TransactionServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
 
             verify(transactionValidator).validateDeposit(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
+            verify(accountRepository, never()).findByAccountNumberWithLock(any());
             verify(transactionRepository, never()).save(any());
         }
     }
@@ -171,7 +171,7 @@ class TransactionServiceTest {
             BigDecimal amount = new BigDecimal("100000");
             TransactionRequest request = new TransactionRequest(amount);
 
-            when(accountRepository.findByAccountNumber(accountNumber))
+            when(accountRepository.findByAccountNumberWithLock(accountNumber))
                 .thenReturn(Optional.of(normalAccount));
             when(transactionRepository.save(any(Transaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -186,7 +186,7 @@ class TransactionServiceTest {
             assertThat(normalAccount.getBalance()).isEqualTo(new BigDecimal("900000"));
 
             verify(transactionValidator).validateWithdrawal(accountNumber, amount);
-            verify(accountRepository).findByAccountNumber(accountNumber);
+            verify(accountRepository).findByAccountNumberWithLock(accountNumber);
             verify(transactionRepository).save(any(Transaction.class));
         }
 
@@ -204,7 +204,7 @@ class TransactionServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
 
             verify(transactionValidator).validateWithdrawal(TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
+            verify(accountRepository, never()).findByAccountNumberWithLock(any());
             verify(transactionRepository, never()).save(any());
         }
     }
@@ -235,9 +235,9 @@ class TransactionServiceTest {
                 .status(AccountStatus.ACTIVE)
                 .build();
 
-            when(accountRepository.findByAccountNumber(fromAccountNumber))
+            when(accountRepository.findByAccountNumberWithLock(fromAccountNumber))
                 .thenReturn(Optional.of(fromAccount));
-            when(accountRepository.findByAccountNumber(toAccountNumber))
+            when(accountRepository.findByAccountNumberWithLock(toAccountNumber))
                 .thenReturn(Optional.of(toAccount));
             when(transactionRepository.save(any(Transaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -275,7 +275,7 @@ class TransactionServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
 
             verify(transactionValidator).validateTransfer(TEST_ACCOUNT_NUMBER, TEST_ACCOUNT_NUMBER, TEST_DEPOSIT_AMOUNT);
-            verify(accountRepository, never()).findByAccountNumber(any());
+            verify(accountRepository, never()).findByAccountNumberWithLock(any());
             verify(transactionRepository, never()).save(any());
         }
     }
