@@ -48,4 +48,14 @@ public class Transaction extends BaseEntity {
                 .fee(BigDecimal.ZERO)
                 .build();
     }
+
+    public static Transaction createWithdrawal(Account account, BigDecimal amount) {
+        return Transaction.builder()
+                .account(account)
+                .type(TransactionType.WITHDRAWAL)
+                .amount(amount)
+                .balanceAfterTransaction(account.getBalance())
+                .fee(BigDecimal.ZERO)
+                .build();
+    }
 } 

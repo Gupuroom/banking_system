@@ -49,4 +49,12 @@ public class Account extends BaseEntity {
     public void deposit(BigDecimal amount) {
         this.balance = this.balance.add(amount);
     }
+
+    public void withdraw(BigDecimal amount) {
+        if (this.balance.compareTo(amount) < 0) {
+            throw new BusinessException(AccountErrorCode.INSUFFICIENT_BALANCE);
+        }
+
+        this.balance = this.balance.subtract(amount);
+    }
 }

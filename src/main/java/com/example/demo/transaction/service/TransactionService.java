@@ -2,6 +2,7 @@ package com.example.demo.transaction.service;
 
 import com.example.demo.account.entity.Account;
 import com.example.demo.account.repository.AccountRepository;
+import com.example.demo.account.validation.AccountValidator;
 import com.example.demo.transaction.dto.TransactionRequest;
 import com.example.demo.transaction.dto.TransactionResponse;
 import com.example.demo.transaction.entity.Transaction;
@@ -29,6 +30,25 @@ public class TransactionService {
         Account account = accountRepository.findByAccountNumber(accountNumber).get();
         account.deposit(request.amount());
         Transaction transaction = Transaction.createDeposit(account, request.amount());
+        Transaction savedTransaction = transactionRepository.save(transaction);
+
+        return TransactionResponse.from(savedTransaction);
+    }
+
+    @Transactional
+    public TransactionResponse withdraw(String accountNumber, TransactionRequest request) {
+        // 검증
+        transactionValidator.validateWithdrawal(accountNumber, request.amount());
+
+        // 거래 처리
+        Account account = accountRepository.findByAccountNumber(accountNumber).get();
+        account.withdraw(request.amount());
+        Transaction transaction = Transaction.createWithdrawal(account, request.amount());
+        
+        // 로그 추가
+        System.out.println("Transaction type: " + transaction.getType());
+        System.out.println("Transaction type name: " + transaction.getType().name());
+        
         Transaction savedTransaction = transactionRepository.save(transaction);
 
         return TransactionResponse.from(savedTransaction);
