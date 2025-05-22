@@ -1,4 +1,0 @@
-rootProject.name = 'banking_system'
-
-include 'core'
-include 'domain'

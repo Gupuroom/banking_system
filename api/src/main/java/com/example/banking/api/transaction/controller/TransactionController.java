@@ -1,9 +1,9 @@
-package com.example.demo.transaction.controller;
+package com.example.banking.api.transaction.controller;
 
+import com.example.banking.api.transaction.dto.TransactionRequest;
 import com.example.banking.domain.transaction.dto.TransactionHistoryResponse;
 import com.example.banking.domain.transaction.dto.TransactionResponse;
 import com.example.banking.domain.transaction.service.TransactionService;
-import com.example.demo.transaction.dto.TransactionRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -60,4 +60,4 @@ public class TransactionController {
         Page<TransactionHistoryResponse> history = transactionService.getTransactionHistory(accountNumber, pageable);
         return ResponseEntity.ok(history);
     }
-} 
+}

@@ -1,4 +1,4 @@
-package com.example.demo;
+package com.example.banking.api;
 
 import com.example.banking.core.error.BusinessException;
 import com.example.banking.domain.account.entity.Account;
