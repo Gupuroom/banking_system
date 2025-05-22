@@ -1,3 +1,4 @@
 rootProject.name = 'banking_system'
 
-include 'core'  // 새로 추가한 core 모듈
+include 'core'
+include 'domain'

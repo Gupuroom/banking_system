@@ -1,8 +1,8 @@
 package com.example.demo.account.controller;
 
+import com.example.banking.domain.account.dto.AccountResponse;
+import com.example.banking.domain.account.service.AccountService;
 import com.example.demo.account.dto.AccountCreateRequest;
-import com.example.demo.account.dto.AccountResponse;
-import com.example.demo.account.service.AccountService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +19,7 @@ public class AccountController {
     @Operation(summary = "계좌 생성", description = "새로운 계좌를 생성합니다.")
     @PostMapping("/api/accounts")
     public ResponseEntity<AccountResponse> createAccount(@RequestBody AccountCreateRequest request) {
-        AccountResponse response = accountService.createAccount(request);
+        AccountResponse response = accountService.createAccount(request.accountNumber(), request.initialBalance());
         return ResponseEntity.ok(response);
     }
 

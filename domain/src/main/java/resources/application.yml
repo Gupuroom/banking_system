@@ -1,0 +1,17 @@
+#spring:
+#  datasource:
+#    driver-class-name: org.mariadb.jdbc.Driver
+#    url: jdbc:mariadb://localhost:3306/mydb
+#    username: root
+#    password: 123456
+#  jpa:
+#    database-platform: org.hibernate.dialect.MariaDBDialect
+#    hibernate:
+#      ddl-auto: none
+#    show-sql: true
+#    properties:
+#      hibernate:
+#        packages-to-scan: com.example.banking.domain
+#        format_sql: true
+#        jdbc:
+#          time_zone: Asia/Seoul
