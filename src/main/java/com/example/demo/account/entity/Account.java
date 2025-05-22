@@ -1,9 +1,9 @@
 package com.example.demo.account.entity;
 
+import com.example.banking.core.common.BaseEntity;
+import com.example.banking.core.error.BusinessException;
 import com.example.demo.account.error.AccountErrorCode;
 import com.example.demo.account.type.AccountStatus;
-import com.example.demo.common.BaseEntity;
-import com.example.demo.common.error.BusinessException;
 import jakarta.persistence.*;
 import lombok.*;
 

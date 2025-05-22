@@ -4,23 +4,20 @@ import com.example.demo.account.entity.Account;
 import com.example.demo.account.error.AccountErrorCode;
 import com.example.demo.account.repository.AccountRepository;
 import com.example.demo.account.validation.AccountValidator;
-import com.example.demo.common.error.BusinessException;
+import com.example.banking.core.error.BusinessException;
 import com.example.demo.transaction.dto.TransactionHistoryResponse;
 import com.example.demo.transaction.dto.TransactionRequest;
 import com.example.demo.transaction.dto.TransactionResponse;
 import com.example.demo.transaction.entity.Transaction;
-import com.example.demo.transaction.error.TransactionErrorCode;
 import com.example.demo.transaction.repository.TransactionRepository;
 import com.example.demo.transaction.validation.TransactionValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor

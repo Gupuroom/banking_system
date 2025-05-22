@@ -1,4 +1,4 @@
-package com.example.demo.common.error;
+package com.example.banking.core.error;
 
 import lombok.Builder;
 
@@ -10,4 +10,4 @@ public record ErrorResponse(
     public ErrorResponse(ErrorCode errorCode) {
         this(errorCode.getCode(), errorCode.getMessage());
     }
-}
+} 

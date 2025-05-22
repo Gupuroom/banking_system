@@ -1,7 +1,7 @@
-package com.example.demo.common.validation;
+package com.example.banking.core.validation;
 
-import com.example.demo.common.error.BusinessException;
-import com.example.demo.common.error.CommonErrorCode;
+import com.example.banking.core.error.BusinessException;
+import com.example.banking.core.error.CommonErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -23,17 +23,17 @@ class CommonValidatorTest {
         void validateAccountNumberFormat_success() {
             // given
             String[] validAccountNumbers = {
-                "13-12-123456",
-                "1312123456",
-                "13-12-123456",
-                "1234567890",
-                "12345678901234567890"
+                    "13-12-123456",
+                    "1312123456",
+                    "13-12-123456",
+                    "1234567890",
+                    "12345678901234567890"
             };
 
             // when & then
             for (String accountNumber : validAccountNumbers) {
                 assertThatCode(() -> validator.validateAccountNumberFormat(accountNumber))
-                    .doesNotThrowAnyException();
+                        .doesNotThrowAnyException();
             }
         }
 
@@ -42,16 +42,16 @@ class CommonValidatorTest {
         void validateAccountNumberFormat_failure() {
             // given
             String[] invalidAccountNumbers = {
-                null,
-                "",
-                " "
+                    null,
+                    "",
+                    " "
             };
 
             // when & then
             for (String accountNumber : invalidAccountNumbers) {
                 assertThatThrownBy(() -> validator.validateAccountNumberFormat(accountNumber))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
+                        .isInstanceOf(BusinessException.class)
+                        .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
             }
         }
     }
@@ -64,15 +64,15 @@ class CommonValidatorTest {
         void validateAmountFormat_success() {
             // given
             BigDecimal[] validAmounts = {
-                new BigDecimal("1000"),
-                new BigDecimal("0"),
-                new BigDecimal("-1000")
+                    new BigDecimal("1000"),
+                    new BigDecimal("0"),
+                    new BigDecimal("-1000")
             };
 
             // when & then
             for (BigDecimal amount : validAmounts) {
                 assertThatCode(() -> validator.validateAmountFormat(amount))
-                    .doesNotThrowAnyException();
+                        .doesNotThrowAnyException();
             }
         }
 
@@ -81,18 +81,18 @@ class CommonValidatorTest {
         void validateAmountFormat_failure() {
             // given
             BigDecimal[] invalidAmounts = {
-                null,
-                new BigDecimal("1000.1"),
-                new BigDecimal("1000.01"),
-                new BigDecimal("0.1"),
-                new BigDecimal("-0.1")
+                    null,
+                    new BigDecimal("1000.1"),
+                    new BigDecimal("1000.01"),
+                    new BigDecimal("0.1"),
+                    new BigDecimal("-0.1")
             };
 
             // when & then
             for (BigDecimal amount : invalidAmounts) {
                 assertThatThrownBy(() -> validator.validateAmountFormat(amount))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
+                        .isInstanceOf(BusinessException.class)
+                        .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
             }
         }
     }
@@ -105,15 +105,15 @@ class CommonValidatorTest {
         void validatePositiveAmount_success() {
             // given
             BigDecimal[] positiveAmounts = {
-                new BigDecimal("1"),
-                new BigDecimal("1000"),
-                new BigDecimal("999999999")
+                    new BigDecimal("1"),
+                    new BigDecimal("1000"),
+                    new BigDecimal("999999999")
             };
 
             // when & then
             for (BigDecimal amount : positiveAmounts) {
                 assertThatCode(() -> validator.validatePositiveAmount(amount))
-                    .doesNotThrowAnyException();
+                        .doesNotThrowAnyException();
             }
         }
 
@@ -122,17 +122,17 @@ class CommonValidatorTest {
         void validatePositiveAmount_failure() {
             // given
             BigDecimal[] nonPositiveAmounts = {
-                BigDecimal.ZERO,
-                new BigDecimal("-1"),
-                new BigDecimal("-1000")
+                    BigDecimal.ZERO,
+                    new BigDecimal("-1"),
+                    new BigDecimal("-1000")
             };
 
             // when & then
             for (BigDecimal amount : nonPositiveAmounts) {
                 assertThatThrownBy(() -> validator.validatePositiveAmount(amount))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
+                        .isInstanceOf(BusinessException.class)
+                        .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.INVALID_INPUT_VALUE);
             }
         }
     }
-} 
+}

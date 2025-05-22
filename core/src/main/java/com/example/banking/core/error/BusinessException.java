@@ -1,4 +1,4 @@
-package com.example.demo.common.error;
+package com.example.banking.core.error;
 
 import lombok.Getter;
 
@@ -15,4 +15,4 @@ public class BusinessException extends RuntimeException {
         super(message);
         this.errorCode = errorCode;
     }
-}
+} 

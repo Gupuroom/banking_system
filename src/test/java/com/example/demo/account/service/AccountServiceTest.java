@@ -8,7 +8,7 @@ import com.example.demo.account.error.AccountErrorCode;
 import com.example.demo.account.repository.AccountRepository;
 import com.example.demo.account.repository.AccountTypeRepository;
 import com.example.demo.account.type.AccountStatus;
-import com.example.demo.common.error.BusinessException;
+import com.example.banking.core.error.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

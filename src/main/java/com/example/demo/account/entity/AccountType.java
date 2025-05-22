@@ -1,6 +1,6 @@
 package com.example.demo.account.entity;
 
-import com.example.demo.common.BaseEntity;
+import com.example.banking.core.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 

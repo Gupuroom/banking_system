@@ -1,4 +1,4 @@
-package com.example.demo.config;
+package com.example.banking.core.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;

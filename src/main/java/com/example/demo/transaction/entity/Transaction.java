@@ -2,7 +2,7 @@ package com.example.demo.transaction.entity;
 
 import com.example.demo.account.entity.Account;
 import com.example.demo.transaction.type.TransactionType;
-import com.example.demo.common.BaseEntity;
+import com.example.banking.core.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 

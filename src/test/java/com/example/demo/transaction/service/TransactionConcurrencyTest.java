@@ -1,16 +1,14 @@
 package com.example.demo.transaction.service;
 
+import com.example.banking.core.error.BusinessException;
 import com.example.demo.account.entity.Account;
 import com.example.demo.account.entity.AccountType;
 import com.example.demo.account.repository.AccountRepository;
 import com.example.demo.account.repository.AccountTypeRepository;
 import com.example.demo.account.type.AccountStatus;
-import com.example.demo.common.error.BusinessException;
 import com.example.demo.transaction.dto.TransactionRequest;
-import com.example.demo.transaction.dto.TransactionResponse;
 import com.example.demo.transaction.entity.Transaction;
 import com.example.demo.transaction.repository.TransactionRepository;
-import com.example.demo.transaction.type.TransactionType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,7 +26,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -56,7 +53,7 @@ class TransactionConcurrencyTest {
     void setUp() {
         // 계좌 타입 설정 및 저장
         normalType = AccountType.builder()
-            .code("NORMAL")
+            .code("NORMAL_TEST")
             .description("일반계좌")
             .transferFeeRate(new BigDecimal("0.01"))
             .dailyWithdrawalLimit(new BigDecimal("10000000"))

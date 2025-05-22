@@ -1,7 +1,7 @@
-package com.example.demo.common.validation;
+package com.example.banking.core.validation;
 
-import com.example.demo.common.error.BusinessException;
-import com.example.demo.common.error.CommonErrorCode;
+import com.example.banking.core.error.BusinessException;
+import com.example.banking.core.error.CommonErrorCode;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;

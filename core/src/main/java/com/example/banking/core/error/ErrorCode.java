@@ -1,7 +1,6 @@
-package com.example.demo.common.error;
+package com.example.banking.core.error;
 
-// ErrorCode.java
 public interface ErrorCode {
     String getCode();
     String getMessage();
-}
+} 

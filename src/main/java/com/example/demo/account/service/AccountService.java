@@ -1,5 +1,6 @@
 package com.example.demo.account.service;
 
+import com.example.banking.core.error.BusinessException;
 import com.example.demo.account.dto.AccountCreateRequest;
 import com.example.demo.account.dto.AccountResponse;
 import com.example.demo.account.entity.Account;
@@ -7,7 +8,6 @@ import com.example.demo.account.entity.AccountType;
 import com.example.demo.account.error.AccountErrorCode;
 import com.example.demo.account.repository.AccountRepository;
 import com.example.demo.account.repository.AccountTypeRepository;
-import com.example.demo.common.error.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

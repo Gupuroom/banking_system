@@ -1,6 +1,6 @@
 package com.example.demo.account.error;
 
-import com.example.demo.common.error.ErrorCode;
+import com.example.banking.core.error.ErrorCode;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 

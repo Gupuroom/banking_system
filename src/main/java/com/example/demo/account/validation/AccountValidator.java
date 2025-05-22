@@ -1,11 +1,11 @@
 package com.example.demo.account.validation;
 
+import com.example.banking.core.error.BusinessException;
+import com.example.banking.core.validation.CommonValidator;
 import com.example.demo.account.entity.Account;
 import com.example.demo.account.error.AccountErrorCode;
 import com.example.demo.account.repository.AccountRepository;
 import com.example.demo.account.type.AccountStatus;
-import com.example.demo.common.error.BusinessException;
-import com.example.demo.common.validation.CommonValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

@@ -1,4 +1,5 @@
-package com.example.demo.common;
+package com.example.banking.core.common;
+
 
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.MappedSuperclass;

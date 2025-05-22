@@ -1,12 +1,9 @@
 package com.example.demo.transaction.validation;
 
 import com.example.demo.account.entity.Account;
-import com.example.demo.account.error.AccountErrorCode;
 import com.example.demo.account.validation.AccountValidator;
-import com.example.demo.common.error.BusinessException;
-import com.example.demo.common.error.CommonErrorCode;
-import com.example.demo.common.validation.CommonValidator;
-import com.example.demo.transaction.entity.Transaction;
+import com.example.banking.core.error.BusinessException;
+import com.example.banking.core.validation.CommonValidator;
 import com.example.demo.transaction.error.TransactionErrorCode;
 import com.example.demo.transaction.repository.TransactionRepository;
 import com.example.demo.transaction.type.TransactionType;

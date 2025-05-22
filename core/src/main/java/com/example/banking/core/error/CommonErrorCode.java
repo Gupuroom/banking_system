@@ -1,4 +1,4 @@
-package com.example.demo.common.error;
+package com.example.banking.core.error;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -11,4 +11,4 @@ public enum CommonErrorCode implements ErrorCode {
 
     private final String code;
     private final String message;
-}
+} 

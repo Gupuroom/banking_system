@@ -1,4 +1,4 @@
-package com.example.demo.common.error;
+package com.example.banking.core.error;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -33,4 +33,4 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest()
                 .body(new ErrorResponse(CommonErrorCode.INVALID_INPUT_VALUE));
     }
-}
+} 
